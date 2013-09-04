@@ -14,3 +14,4 @@ $(PA): | $(ENV)
 	rm $(PA)
 
 install: $(ENV) $(PA)
+	CFLAGS="-I$(ENV)/include -I$(ENV)/portaudio/include -L$(ENV)/lib -L$(ENV)/portaudio/lib" PORTAUDIO_PATH=$(ENV)/portaudio $(ENV)/bin/pip install pyaudio
