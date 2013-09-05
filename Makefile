@@ -20,3 +20,4 @@ install: | $(ENV) $(PORTAUDIO)
 	$(ENV)/bin/pip install numpy
 	$(ENV)/bin/pip install scipy
 	$(ENV)/bin/pip install git+git://github.com/andreasjansson/onset-detection.git@127029e
+	$(ENV)/bin/pip install BeautifulHue
