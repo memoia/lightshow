@@ -47,6 +47,23 @@ def refresh_time(sample_seconds, onsets):
     return int(round(60.0 / (len(onsets) / sample_seconds)))
 
 
+def freq_parts(sample, onsets, buckets=3):
+    amp = np.take(sample, onsets)
+    frq = np.take(fftpack.fft(sample), onsets)
+    amS = stats.mstats.mquantiles(amp, prob=prob_percentiles(buckets))
+    frS = stats.mstats.mquantiles(frq, prob=prob_percentiles(buckets))
+    return (amS, frS.real, frS.imag)
+
+
+def shift_positive(vals):
+    return (vals + (np.abs(vals.min()) * 2)) if vals.min() < 0 else vals
+
+
+def scale_uint(vals, size=255):
+    vals = shift_positive(vals)
+    return (vals / ((vals.max() - vals.min()) / size)) * (size / vals.max())
+
+
 refresh_seconds = 1
 
 while True:
@@ -57,9 +74,8 @@ while True:
 
     onsets = onsetdetection.detect_onsets(sample)
 
-    bar = np.take(fftpack.fft(sample), onsets)
-    baz = stats.mstats.mquantiles(bar, prob=prob_percentiles())
-    print baz
+    (foo, bar, baz) = freq_parts(sample, onsets)
+    print scale_uint(foo), scale_uint(bar), scale_uint(baz, 65535)
 
     refresh_seconds = refresh_time(refresh_seconds, onsets)
     print "Refresh after %s" % refresh_seconds
