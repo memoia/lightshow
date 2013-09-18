@@ -7,15 +7,15 @@ from beautifulhue.api import Bridge
 from lightshow.registration import register, discover
 
 
-(ip, user) = register(discover())
+def find_bridge():
+    (ip, user) = register(discover())
+    bridge = Bridge(device={'ip': ip}, user={'name': user})
+    return bridge
 
-print "hue ip: {}, username: {}".format(ip, user)
 
-
-bridge = Bridge(device={'ip': ip}, user={'name': user})
-
-resource = {'which': 'all', 'verbose': False}
-print bridge.light.get(resource)
+def find_lights(bridge):
+    resource = {'which': 'all', 'verbose': False}
+    return bridge.light.get(resource)
 
 
 def get_sample(seconds=2, sample_rate=44100):
@@ -59,10 +59,27 @@ def shift_positive(vals):
     return (vals + (np.abs(vals.min()) * 2)) if vals.min() < 0 else vals
 
 
-def scale_uint(vals, size=255):
+def scale_uint(vals, size=8):
+    maxval = (2 ** size) - 1.0
     vals = shift_positive(vals)
-    return (vals / ((vals.max() - vals.min()) / size)) * (size / vals.max())
+    adjusted = ((vals * maxval) / vals.max()) - np.log10(vals.max())
+    adjusted[adjusted<0] += adjusted.min()
+    return np.rint(adjusted).astype(np.uint)
 
+
+def light_params(sample, onsets, buckets=3):
+    (foo, bar, baz) = freq_parts(sample, onsets, buckets)
+    return np.column_stack((
+        scale_uint(foo, 8),     # brightness
+        scale_uint(bar, 16),    # hue
+        scale_uint(baz, 8),     # saturation
+    ))
+
+
+bridge = find_bridge()
+lights = find_lights(bridge)
+light_ids = sorted([k.get('id') for k in lights.get('resource')])
+buckets = len(light_ids)
 
 refresh_seconds = 1
 
@@ -74,8 +91,21 @@ while True:
 
     onsets = onsetdetection.detect_onsets(sample)
 
-    (foo, bar, baz) = freq_parts(sample, onsets)
-    print scale_uint(foo), scale_uint(bar), scale_uint(baz, 65535)
+    params = light_params(sample, onsets, buckets)
+    for (lightnum, values) in zip(light_ids, params.tolist()):
+        resource = {
+            'which': lightnum,
+            'data': {
+                'state': {
+                    'on': True,
+                    'bri': values[0],
+                    'hue': values[1],
+                    'sat': values[2],
+                },
+            },
+        }
+        bridge.light.update(resource)
 
     refresh_seconds = refresh_time(refresh_seconds, onsets)
+    print "Setting\n%s" % params
     print "Refresh after %s" % refresh_seconds
