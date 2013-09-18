@@ -1,4 +1,5 @@
 #!env/bin/python -i
+import thread
 import pyaudio
 import numpy as np
 import onsetdetection
@@ -104,7 +105,7 @@ while True:
                 },
             },
         }
-        bridge.light.update(resource)
+        thread.start_new_thread(bridge.light.update, (resource,))
 
     refresh_seconds = refresh_time(refresh_seconds, onsets)
     print "Setting\n%s" % params
